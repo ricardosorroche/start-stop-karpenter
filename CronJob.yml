@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scale-up-job
+  namespace: karpenter
+spec:
+  schedule: "20 18 * * 1-5"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          tolerations:
+          - key: adm-tasks
+            operator: Equal
+            value: "true"
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            args: 
+              - -n karpenter
+              - patch
+              - provisioner
+              - default
+              - --type=merge
+              - --patch
+              - '{"spec": {"limits": {"resources": {"cpu": "1k"}}}}'
+          serviceAccountName: scale-up-down
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: set-limits-down-job
+  namespace: karpenter
+spec:
+  schedule: "34 14 * * 1-5"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            args: 
+              - -n karpenter
+              - patch
+              - provisioner
+              - default
+              - --type=merge
+              - --patch
+              - '{"spec": {"limits": {"resources": {"cpu": "0k"}}}}'
+          serviceAccountName: scale-up-down
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scale-down-job
+  namespace: karpenter
+spec:
+  schedule: "12 15 * * 1-5"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            command: 
+              - "/bin/sh"
+              - "-c"
+              - |
+                kubectl get nodes -l karpenter.sh/provisioner-name=default | grep -i ip | awk '{print $1}' | xargs -I {} kubectl delete node {} --wait=false
+          serviceAccountName: scale-up-down
+          

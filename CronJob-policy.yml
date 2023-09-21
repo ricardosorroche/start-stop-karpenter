@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scale-up-down
+  namespace: karpenter
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: scale-up-down
+rules:
+- apiGroups:
+  - karpenter.sh
+  resources:
+  - provisioners
+  - provisioners/status
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - delete
+- apiGroups: 
+  - ""
+  resources: 
+  - nodes
+  verbs:
+  - get
+  - list
+  - delete
+- apiGroups:
+  - karpenter.k8s.aws
+  resources:
+  - awsnodetemplates
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: scale-up-down
+subjects:
+- kind: ServiceAccount
+  name: scale-up-down
+  namespace: karpenter
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: scale-up-down
+  apiGroup: ""
